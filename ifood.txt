@@ -1,0 +1,141 @@
+CREATE DATABASE IF NOT EXISTS naruto_restaurante;
+USE naruto_restaurante;
+
+CREATE TABLE IF NOT EXISTS endereco (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    rua VARCHAR(60) NOT NULL,
+    bairro VARCHAR(30) NOT NULL,
+    numero VARCHAR(10) NOT NULL,
+    cidade VARCHAR(60) NOT NULL,
+    estado VARCHAR(30) NOT NULL,
+    ponto_referencia VARCHAR(60),
+    complemento VARCHAR(60),
+    cep VARCHAR(11) NOT NULL,
+    tipo_endereco ENUM('Residencial', 'Comercial') NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS categoria (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nome VARCHAR(60) NOT NULL UNIQUE,
+    descricao TEXT,
+    tipo_categoria ENUM('Alimentação', 'Bebida', 'Sobremesa') NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS restaurante (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nome VARCHAR(60) NOT NULL,
+    telefone VARCHAR(20),
+    hora_funcionamento TIME NOT NULL,
+    id_endereco_restaurante INT NOT NULL,
+    is_retirada BOOLEAN DEFAULT FALSE,
+    id_categoria INT NOT NULL,
+    valor_minimo_entrega DECIMAL(10, 2) DEFAULT 0.00,
+    status BOOLEAN DEFAULT TRUE,
+    data_criacao DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_categoria) REFERENCES categoria(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_endereco_restaurante) REFERENCES endereco(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS produto (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nome VARCHAR(60) NOT NULL UNIQUE,
+    preco DECIMAL(10, 2) NOT NULL,
+    id_categoria INT NOT NULL,
+    id_restaurante INT NOT NULL,
+    data_criacao DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_categoria) REFERENCES categoria(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_restaurante) REFERENCES restaurante(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS promocao (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nome VARCHAR(60) NOT NULL,
+    codigo VARCHAR(30) UNIQUE NOT NULL,
+    valor DECIMAL(10, 2) NOT NULL,
+    validade DATE NOT NULL,
+    tipo ENUM('Desconto', 'Frete', 'Produto') NOT NULL
+);
+
+INSERT INTO endereco (rua, bairro, numero, cidade, estado, ponto_referencia, complemento, cep, tipo_endereco) VALUES
+('Rua Hokage', 'Konoha', '123', 'Konoha', 'JP', 'Perto do escritório do Hokage', 'Casa 1', '12345-000', 'Residencial'),
+('Avenida Ichiraku', 'Konoha', '456', 'Konoha', 'JP', 'Em frente ao restaurante Ichiraku', '', '12346-000', 'Comercial'),
+('Rua Uchiha', 'Konoha', '789', 'Konoha', 'JP', 'Perto do clã Uchiha', 'Apto 5', '12347-000', 'Residencial')
+ON DUPLICATE KEY UPDATE
+bairro = VALUES(bairro),
+numero = VALUES(numero),
+ponto_referencia = VALUES(ponto_referencia),
+complemento = VALUES(complemento),
+tipo_endereco = VALUES(tipo_endereco);
+
+INSERT INTO categoria (nome, descricao, tipo_categoria) VALUES
+('Ramen', 'Pratos de ramen inspirados no Ichiraku', 'Alimentação'),
+('Bebidas Ninja', 'Bebidas refrescantes para ninjas cansados', 'Bebida'),
+('Sobremesas Kage', 'Deliciosas sobremesas com tema dos Kages', 'Sobremesa')
+ON DUPLICATE KEY UPDATE
+descricao = VALUES(descricao),
+tipo_categoria = VALUES(tipo_categoria);
+
+INSERT INTO restaurante (nome, telefone, hora_funcionamento, is_retirada, id_categoria, valor_minimo_entrega, id_endereco_restaurante) VALUES
+('Ichiraku Ramen', '123456789', '12:00:00', TRUE, 1, 15.00, 1),
+('Restaurante Hokage', '987654321', '08:00:00', FALSE, 2, 10.00, 2),
+('Confeitaria Uchiha', '333444555', '10:00:00', TRUE, 3, 20.00, 3)
+ON DUPLICATE KEY UPDATE
+telefone = VALUES(telefone),
+hora_funcionamento = VALUES(hora_funcionamento),
+is_retirada = VALUES(is_retirada),
+valor_minimo_entrega = VALUES(valor_minimo_entrega),
+id_endereco_restaurante = VALUES(id_endereco_restaurante);
+
+INSERT INTO produto (nome, preco, id_categoria, id_restaurante) VALUES
+('Ramen Naruto', 22.00, 1, 1),
+('Ramen Sasuke', 25.00, 1, 1),
+('Soda do Lee', 8.00, 2, 2),
+('Sobremesa do Hokage', 15.00, 3, 3)
+ON DUPLICATE KEY UPDATE
+preco = VALUES(preco),
+id_categoria = VALUES(id_categoria),
+id_restaurante = VALUES(id_restaurante);
+
+INSERT INTO promocao (nome, codigo, valor, validade, tipo) VALUES
+('Desconto de Naruto', 'NARUTO10', 10.00, '2024-12-31', 'Desconto'),
+('Frete Grátis Konoha', 'KONOHAFRETE', 5.00, '2024-12-25', 'Frete'),
+('Promoção Sakura', 'SAKURA5', 5.00, '2024-12-20', 'Produto')
+ON DUPLICATE KEY UPDATE
+valor = VALUES(valor),
+validade = VALUES(validade),
+tipo = VALUES(tipo);
+
+SELECT 
+    rest.nome AS restaurante, 
+    COUNT(ped.id_restaurante) AS total_pedidos
+FROM 
+    pedido ped
+INNER JOIN restaurante rest ON ped.id_restaurante = rest.id
+GROUP BY 
+    rest.nome
+ORDER BY 
+    total_pedidos DESC
+LIMIT 1;
+
+SELECT 
+    prod.nome AS produto, 
+    SUM(pp.quantidade) AS total_vendido
+FROM 
+    pedido_produto pp
+INNER JOIN produto prod ON pp.id_produto = prod.id
+GROUP BY 
+    prod.nome
+ORDER BY 
+    total_vendido DESC
+LIMIT 1;
+
+SELECT 
+    MONTH(ped.data_pedido) AS mes, 
+    COUNT(ped.id) AS total_pedidos
+FROM 
+    pedido ped
+GROUP BY 
+    mes
+ORDER BY 
+    total_pedidos DESC
+LIMIT 1;
